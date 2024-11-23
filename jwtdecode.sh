@@ -13,6 +13,20 @@ else
   jwt_token=$1
 fi
 
+# Validate JWT token
+validate_jwt() {
+  local jwt=$1
+  local parts=()
+  IFS='.' read -r -a parts <<< "$jwt"
+  if [ "${#parts[@]}" -ne 3 ]; then
+    echo "Invalid JWT token"
+    exit 1
+  fi
+}
+
+# Validate the JWT token format
+validate_jwt "$jwt_token"
+
 # Decode and split the JWT token
 IFS='.' read -r header payload signature <<< "$jwt_token"
 
