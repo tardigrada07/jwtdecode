@@ -1,4 +1,4 @@
-# jwtdecode
+# jwtdecoder
 Simple, command line JWT token decoder.
 - Decoding JSON Web Tokens from the Linux command line
 - Offline
