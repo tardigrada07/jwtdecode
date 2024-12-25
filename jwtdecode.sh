@@ -1,50 +1,41 @@
 #!/bin/bash
 
+# Print usage instructions if no argument is provided
 if [[ -z $1 ]]; then
   echo "Simple, command line JWT token decoder"
-  echo "Usage: jwtdecode.sh <filename.json> | <token string>"
-  echo "For example:"
-  echo "* Decode JWT token from a file:   ./jwtdecode.sh token.json"
-  echo "* Decode JWT token from a string: ./jwtdecode.sh eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+  echo "Usage: jwtdecode.sh <token file> | <token string>"
   exit 1
 elif [[ $1 == *.json && -f $1 ]]; then
-  jwt_token=$(cat "$1")
+  jwtToken=$(cat "$1")
 else
-  jwt_token=$1
+  jwtToken=$1
 fi
 
-# Validate JWT token
+# Validate JWT token format
 validate_jwt() {
-  local jwt=$1
-  local parts=()
-  IFS='.' read -r -a parts <<< "$jwt"
+  local token=$1
+  IFS='.' read -r -a parts <<< "$token"
   if [ "${#parts[@]}" -ne 3 ]; then
     echo "Invalid JWT token"
     exit 1
   fi
 }
+validate_jwt "$jwtToken"
 
-# Validate the JWT token format
-validate_jwt "$jwt_token"
-
-# Decode and split the JWT token
-IFS='.' read -r header payload signature <<< "$jwt_token"
-
-# Function for base64 decoding with proper padding
-base64_decode() {
+# Add padding to base64-encoded string if necessary
+add_padding() {
   local encoded=$1
-  local len=$((${#encoded} % 4))
-  if [ "$len" -eq 2 ]; then
-    encoded="$encoded"==
-  elif [ "$len" -eq 3 ]; then
-    encoded="$encoded"=
-  fi
-  echo "$encoded" | base64 -d
+  case $((${#encoded} % 4)) in
+    2) encoded+="==" ;;
+    3) encoded+="=" ;;
+  esac
+  echo "$encoded"
 }
 
-# Decode the base64-encoded parts and convert them to JSON
-header_json=$(base64_decode "$header" | jq .)
-payload_json=$(base64_decode "$payload" | jq .)
+# Decode Base64 string
+decode_base64() {
+  add_padding "$1" | base64 -d
+}
 
 # Define color codes
 RED='\033[0;31m'
@@ -52,10 +43,23 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Print JSON block with color
+print_json_block() {
+  local label=$1
+  local json=$2
+  local color=$3
+  echo "$label"
+  echo -e "${color}${json}$NC" # Reset color after output
+}
+
+# Decode and split the JWT token
+IFS='.' read -r header payload signature <<< "$jwtToken"
+
+# Decode the Base64-encoded parts and convert them to JSON
+headerJson=$(decode_base64 "$header" | jq .)
+payloadJson=$(decode_base64 "$payload" | jq .)
+
 # Print JSON blocks
-echo "Header"
-echo -e "${RED}$header_json${NC}"
-echo "Payload"
-echo -e "${GREEN}$payload_json${NC}"
-echo "Signature"
-echo -e "${BLUE}$signature${NC}\n"
+print_json_block "Header" "$headerJson" "$RED"
+print_json_block "Payload" "$payloadJson" "$GREEN"
+print_json_block "Signature" "$signature" "$BLUE"
